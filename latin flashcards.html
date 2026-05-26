@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Jenney's Latin — Vocabula Flashcards</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background: linear-gradient(135deg,#0d0d1a 0%,#1a1a2e 50%,#0d1a0d 100%);
+    background-attachment: fixed;
+    color:#e8dfc8;
+    display:flex; flex-direction:column; align-items:center;
+    padding:20px 16px 48px; min-height:100vh;
+  }
+  .sub { font-size:11px; letter-spacing:6px; color:#888; text-transform:uppercase; text-align:center; margin-bottom:4px; }
+  h1 { font-weight:normal; font-size:26px; letter-spacing:1px; text-align:center; color:#e8dfc8; }
+  .count { font-size:12px; color:#666; text-align:center; margin-top:4px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:16px; max-width:620px; }
+  .toggle, .filter, .ctrl, .small {
+    font-family:inherit; cursor:pointer; transition:all .15s;
+    border-radius:20px; border:1px solid #444; background:transparent; color:#888;
+  }
+  .toggle { padding:6px 18px; font-size:12px; letter-spacing:2px; text-transform:uppercase; }
+  .toggle.active { background:#e8dfc8; color:#1a1a2e; border-color:#e8dfc8; }
+  .filter { padding:4px 12px; border-radius:14px; font-size:11px; letter-spacing:1px; text-transform:uppercase; border-color:#333; color:#666; }
+  .filter.active { font-weight:bold; }
+  .progress { width:100%; max-width:480px; height:3px; background:#222; border-radius:2px; margin:20px 0; }
+  .progress > div { height:100%; border-radius:2px; transition:width .3s; }
+  .scene { width:100%; max-width:480px; perspective:1000px; }
+  .card {
+    position:relative; width:100%; height:300px; cursor:pointer;
+    transform-style:preserve-3d; transition:transform .5s cubic-bezier(.4,0,.2,1);
+  }
+  .card.flipped { transform:rotateY(180deg); }
+  .face {
+    position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden;
+    border-radius:20px; padding:32px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+  }
+  .back { transform:rotateY(180deg); }
+  .tag { position:absolute; top:16px; left:20px; font-size:10px; letter-spacing:3px; text-transform:uppercase; opacity:.85; }
+  .idx { position:absolute; top:16px; right:20px; font-size:10px; color:#555; }
+  .term { line-height:1.5; color:#f0e8d0; }
+  .hint { position:absolute; bottom:16px; font-size:11px; color:#444; letter-spacing:1px; }
+  .answer { line-height:1.5; margin-bottom:16px; }
+  .details { display:flex; gap:18px; flex-wrap:wrap; justify-content:center; }
+  .detail .lbl { font-size:9px; color:#555; letter-spacing:2px; text-transform:uppercase; margin-bottom:3px; }
+  .detail .val { font-size:14px; color:#aaa; }
+  .controls { display:flex; gap:12px; margin-top:24px; align-items:center; }
+  .nav { width:44px; height:44px; border-radius:50%; border:1px solid #333; background:transparent; color:#888; font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-family:inherit; }
+  .nav:disabled { color:#333; cursor:default; }
+  .known-btn { padding:10px 24px; border-radius:22px; background:transparent; font-size:12px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; font-family:inherit; transition:all .2s; }
+  .small { padding:6px 18px; border-radius:16px; border-color:#333; color:#666; font-size:11px; letter-spacing:2px; margin-top:14px; }
+  .mastery { margin-top:20px; text-align:center; }
+  .mastery .lbl { font-size:11px; color:#555; margin-bottom:6px; letter-spacing:2px; text-transform:uppercase; }
+  .mbar { width:200px; height:4px; background:#222; border-radius:2px; margin:0 auto; }
+  .mbar > div { height:100%; background:#4ecb71; border-radius:2px; transition:width .4s; }
+  .italic { font-style:italic; }
+</style>
+</head>
+<body>
+  <div class="sub">Jenney's First Year Latin</div>
+  <h1>Vocabula</h1>
+  <div class="count" id="count"></div>
+
+  <div class="row" id="modeRow">
+    <button class="toggle active" data-mode="latin">Latin &#8594; EN</button>
+    <button class="toggle" data-mode="english">EN &#8594; Latin</button>
+  </div>
+
+  <div class="row" id="filterRow"></div>
+
+  <div class="progress"><div id="progBar"></div></div>
+
+  <div class="scene">
+    <div class="card" id="card">
+      <div class="face front" id="front"></div>
+      <div class="face back" id="back"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="nav" id="prev">&#8592;</button>
+    <button class="known-btn" id="knownBtn"></button>
+    <button class="nav" id="next">&#8594;</button>
+  </div>
+
+  <div class="row">
+    <button class="small" id="shuffle">&#8646; Shuffle</button>
+    <button class="small" id="reset">&#8635; Reset</button>
+  </div>
+
+  <div class="mastery" id="mastery" style="display:none;">
+    <div class="lbl" id="masteryLbl"></div>
+    <div class="mbar"><div id="masteryBar"></div></div>
+  </div>
+
+<script>
+const VOCAB = [{"latin": "sagitta, -ae", "genitive": "-ae", "gender": "f.", "pos": "noun", "en": "arrow"}, {"latin": "spatium, spatī", "genitive": "spatī", "gender": "n.", "pos": "noun", "en": "distance, interval (of time or space)"}, {"latin": "studium, studī", "genitive": "studī", "gender": "n.", "pos": "noun", "en": "eagerness, enthusiasm, zeal"}, {"latin": "tempestās, tempestātis", "genitive": "tempestātis", "gender": "f.", "pos": "noun", "en": "weather; storm"}, {"latin": "satis", "genitive": "—", "gender": "n. (defective)", "pos": "noun", "en": "enough"}, {"latin": "altitūdō, altitūdinis", "genitive": "altitūdinis", "gender": "f.", "pos": "noun", "en": "height, depth"}, {"latin": "centuriō, centuriōnis", "genitive": "centuriōnis", "gender": "m.", "pos": "noun", "en": "centurion"}, {"latin": "dolor, dolōris", "genitive": "dolōris", "gender": "m.", "pos": "noun", "en": "grief, pain, suffering"}, {"latin": "flōs, flōris", "genitive": "flōris", "gender": "m.", "pos": "noun", "en": "flower"}, {"latin": "fossa, -ae", "genitive": "-ae", "gender": "f.", "pos": "noun", "en": "ditch"}, {"latin": "genus, generis", "genitive": "generis", "gender": "n.", "pos": "noun", "en": "kind, sort, class, race"}, {"latin": "hīberna, -ōrum", "genitive": "-ōrum", "gender": "n. pl.", "pos": "noun", "en": "winter quarters"}, {"latin": "iūs, iūris", "genitive": "iūris", "gender": "n.", "pos": "noun", "en": "right, justice, law"}, {"latin": "lātitūdō, lātitūdinis", "genitive": "lātitūdinis", "gender": "f.", "pos": "noun", "en": "width"}, {"latin": "magnitūdō, magnitūdinis", "genitive": "magnitūdinis", "gender": "f.", "pos": "noun", "en": "size, greatness"}, {"latin": "mēns, mentis", "genitive": "mentis", "gender": "f.", "pos": "noun", "en": "mind"}, {"latin": "mercātor, mercātōris", "genitive": "mercātōris", "gender": "m.", "pos": "noun", "en": "merchant, trader"}, {"latin": "onus, oneris", "genitive": "oneris", "gender": "n.", "pos": "noun", "en": "burden"}, {"latin": "opus, operis", "genitive": "operis", "gender": "n.", "pos": "noun", "en": "work"}, {"latin": "ōrātio, ōrātiōnis", "genitive": "ōrātiōnis", "gender": "f.", "pos": "noun", "en": "speech"}, {"latin": "vāllum, -ī", "genitive": "-ī", "gender": "n.", "pos": "noun", "en": "rampart"}, {"latin": "calamitās, calamitātis", "genitive": "calamitātis", "gender": "f.", "pos": "noun", "en": "disaster, misfortune"}, {"latin": "condiciō, condiciōnis", "genitive": "condiciōnis", "gender": "f.", "pos": "noun", "en": "terms, condition"}, {"latin": "cōnsuētūdō, cōnsuētūdinis", "genitive": "cōnsuētūdinis", "gender": "f.", "pos": "noun", "en": "habit, custom"}, {"latin": "difficultās, difficultātis", "genitive": "difficultātis", "gender": "f.", "pos": "noun", "en": "difficulty"}, {"latin": "īnsidiae, -ārum", "genitive": "-ārum", "gender": "f. pl.", "pos": "noun", "en": "trap, ambush, plot"}, {"latin": "iūdicium, iūdicī", "genitive": "iūdicī", "gender": "n.", "pos": "noun", "en": "judgment, trial"}, {"latin": "orbis, orbis", "genitive": "orbis", "gender": "m.", "pos": "noun", "en": "circle, wheel"}, {"latin": "potestās, potestātis", "genitive": "potestātis", "gender": "f.", "pos": "noun", "en": "power"}, {"latin": "regiō, regiōnis", "genitive": "regiōnis", "gender": "f.", "pos": "noun", "en": "direction; district, region"}, {"latin": "sententia, -ae", "genitive": "-ae", "gender": "f.", "pos": "noun", "en": "opinion"}, {"latin": "vadum, -ī", "genitive": "-ī", "gender": "n.", "pos": "noun", "en": "ford, shallows"}, {"latin": "aurum, -ī", "genitive": "-ī", "gender": "n.", "pos": "noun", "en": "gold"}, {"latin": "ferrum, -ī", "genitive": "-ī", "gender": "n.", "pos": "noun", "en": "iron"}, {"latin": "pīlum, -ī", "genitive": "-ī", "gender": "n.", "pos": "noun", "en": "javelin"}, {"latin": "scūtum, -ī", "genitive": "-ī", "gender": "n.", "pos": "noun", "en": "shield"}, {"latin": "tribūnus, -ī", "genitive": "-ī", "gender": "m.", "pos": "noun", "en": "tribune"}, {"latin": "vallēs, vallis", "genitive": "vallis", "gender": "f.", "pos": "noun", "en": "valley"}, {"latin": "arbor, arboris", "genitive": "arboris", "gender": "f.", "pos": "noun", "en": "tree"}, {"latin": "collis, collis", "genitive": "collis", "gender": "m.", "pos": "noun", "en": "hill"}, {"latin": "cupiditās, cupiditātis", "genitive": "cupiditātis", "gender": "f.", "pos": "noun", "en": "greed, desire"}, {"latin": "glōria, -ae", "genitive": "-ae", "gender": "f.", "pos": "noun", "en": "fame, glory"}, {"latin": "līberī, -ōrum", "genitive": "-ōrum", "gender": "m. pl.", "pos": "noun", "en": "children"}, {"latin": "lūna, -ae", "genitive": "-ae", "gender": "f.", "pos": "noun", "en": "moon"}, {"latin": "mora, -ae", "genitive": "-ae", "gender": "f.", "pos": "noun", "en": "delay"}, {"latin": "negōtium, negōtī", "genitive": "negōtī", "gender": "n.", "pos": "noun", "en": "trouble; task, business"}, {"latin": "senātor, senātōris", "genitive": "senātōris", "gender": "m.", "pos": "noun", "en": "senator"}, {"latin": "sōl, sōlis", "genitive": "sōlis", "gender": "m.", "pos": "noun", "en": "sun"}, {"latin": "stella, -ae", "genitive": "-ae", "gender": "f.", "pos": "noun", "en": "star"}, {"latin": "turris, turris", "genitive": "turris", "gender": "f.", "pos": "noun", "en": "tower"}, {"latin": "ventus, -ī", "genitive": "-ī", "gender": "m.", "pos": "noun", "en": "wind"}, {"latin": "aedificium, aedificī", "genitive": "aedificī", "gender": "n.", "pos": "noun", "en": "building"}, {"latin": "auris, auris", "genitive": "auris", "gender": "f.", "pos": "noun", "en": "ear"}, {"latin": "fidēs, -eī", "genitive": "-eī", "gender": "f.", "pos": "noun", "en": "faith, loyalty, confidence; pledge"}, {"latin": "forum, -ī", "genitive": "-ī", "gender": "n.", "pos": "noun", "en": "market place, forum"}, {"latin": "nēmō, nēminī", "genitive": "nēminī", "gender": "m.", "pos": "noun", "en": "no one"}, {"latin": "oculus, -ī", "genitive": "-ī", "gender": "m.", "pos": "noun", "en": "eye"}, {"latin": "speciēs, -eī", "genitive": "-eī", "gender": "f.", "pos": "noun", "en": "sight, appearance"}, {"latin": "vestis, vestis", "genitive": "vestis", "gender": "f.", "pos": "noun", "en": "clothing"}, {"latin": "vigilia, -ae", "genitive": "-ae", "gender": "f.", "pos": "noun", "en": "wakefulness, watchfulness; watch"}, {"latin": "vīs, vīs", "genitive": "vīs", "gender": "f.", "pos": "noun", "en": "force, violence"}, {"latin": "vīrēs, vīrium", "genitive": "vīrium", "gender": "f. pl.", "pos": "noun", "en": "strength (pl.)"}, {"latin": "dēfessus, -a, -um", "genitive": "—", "gender": "—", "pos": "adjective", "en": "tired"}, {"latin": "impedītus, -a, -um", "genitive": "—", "gender": "—", "pos": "adjective", "en": "hindered, handicapped, in difficulty"}, {"latin": "mīrus, -a, -um", "genitive": "—", "gender": "—", "pos": "adjective", "en": "strange, wonderful"}, {"latin": "necesse", "genitive": "—", "gender": "defective", "pos": "adjective", "en": "necessary"}, {"latin": "tālis, -e", "genitive": "—", "gender": "—", "pos": "adjective", "en": "such, of such a kind"}, {"latin": "tantus, -a, -um", "genitive": "—", "gender": "—", "pos": "adjective", "en": "so much, so great, so large"}, {"latin": "tot", "genitive": "—", "gender": "indecl.", "pos": "adjective", "en": "so many"}, {"latin": "commūnis, -e", "genitive": "—", "gender": "—", "pos": "adjective", "en": "common, general"}, {"latin": "immortālis, -e", "genitive": "—", "gender": "—", "pos": "adjective", "en": "immortal"}, {"latin": "prīvātus, -a, -um", "genitive": "—", "gender": "—", "pos": "adjective", "en": "private"}, {"latin": "quantus, -a, -um", "genitive": "—", "gender": "—", "pos": "adjective", "en": "how great? how much?"}, {"latin": "quot", "genitive": "—", "gender": "indecl.", "pos": "adjective", "en": "how many?"}, {"latin": "calidus, -a, -um", "genitive": "—", "gender": "—", "pos": "adjective", "en": "hot"}, {"latin": "frīgidus, -a, -um", "genitive": "—", "gender": "—", "pos": "adjective", "en": "cold"}, {"latin": "suus, -a, -um", "genitive": "—", "gender": "refl. poss.", "pos": "adjective", "en": "his, her, its, their (reflexive)"}, {"latin": "tredecim", "genitive": "—", "gender": "indecl.", "pos": "numeral", "en": "thirteen (XIII)"}, {"latin": "quattuordecim", "genitive": "—", "gender": "indecl.", "pos": "numeral", "en": "fourteen (XIV)"}, {"latin": "quīndecim", "genitive": "—", "gender": "indecl.", "pos": "numeral", "en": "fifteen (XV)"}, {"latin": "sēdecim", "genitive": "—", "gender": "indecl.", "pos": "numeral", "en": "sixteen (XVI)"}, {"latin": "septendecim", "genitive": "—", "gender": "indecl.", "pos": "numeral", "en": "seventeen (XVII)"}, {"latin": "duodēvīgintī", "genitive": "—", "gender": "indecl.", "pos": "numeral", "en": "eighteen (XVIII)"}, {"latin": "ūndēvīgintī", "genitive": "—", "gender": "indecl.", "pos": "numeral", "en": "nineteen (XIX)"}, {"latin": "cōnservō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "save, keep"}, {"latin": "incendō, -ere, incendī, incēnsum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "set on fire; arouse"}, {"latin": "pellō, -ere, pepulī, pulsum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "push; rout, defeat"}, {"latin": "permoveō, -ēre, permōvī, permōtum", "genitive": "—", "gender": "—", "pos": "verb 2", "en": "move deeply, alarm"}, {"latin": "prōdūcō, prōdūcere, prōdūxī, prōductum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "lead forward, bring forth"}, {"latin": "prōpōnō, prōpōnere, prōposuī, prōpositum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "set forth, put forth, propose"}, {"latin": "renūntiō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "report, bring back word (of)"}, {"latin": "vāstō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "lay waste, devastate"}, {"latin": "imperō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "order, command"}, {"latin": "mandō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "command, instruct; entrust"}, {"latin": "ōrō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "beg"}, {"latin": "persuādeō, persuādēre, persuāsī, persuāsum", "genitive": "—", "gender": "—", "pos": "verb 2", "en": "persuade"}, {"latin": "postulō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "demand"}, {"latin": "quaerō, quaerere, quaesīvī, quaesītum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "seek; inquire, ask"}, {"latin": "rogō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "ask, ask for"}, {"latin": "armō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "arm, equip"}, {"latin": "cōnsistō, cōnsistere, cōnstitī, cōnstitum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "halt; take a stand"}, {"latin": "errō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "wander; make a mistake"}, {"latin": "perficiō, perficere, perfēcī, perfectum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "finish, accomplish"}, {"latin": "perterreō, perterrēre, perteruī, perterritum", "genitive": "—", "gender": "—", "pos": "verb 2", "en": "terrify"}, {"latin": "addūcō, addūcere, addūxī, adductum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "lead to; influence"}, {"latin": "circumveniō, circumvenīre, circumvēnī, circumventum", "genitive": "—", "gender": "—", "pos": "verb 4", "en": "surround, come around"}, {"latin": "commoveō, commovēre, commōvī, commōtum", "genitive": "—", "gender": "—", "pos": "verb 2", "en": "move thoroughly, upset, alarm"}, {"latin": "compleō, complēre, complēvī, complētum", "genitive": "—", "gender": "—", "pos": "verb 2", "en": "fill up, complete"}, {"latin": "cōnspiciō, cōnspicere, cōnspexī, cōnspectum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "look at attentively, observe closely"}, {"latin": "dēficiō, dēficere, dēfēcī, dēfectum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "fail; revolt, desert"}, {"latin": "dimittō, dimittere, dīmīsī, dīmissum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "let go away, send away, dismiss"}, {"latin": "ēnūntiō, ēnūntiāre, ēnūntiāvī, ēnūntiātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "report, announce"}, {"latin": "expōnō, expōnere, exposuī, expositum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "set forth; explain"}, {"latin": "incitō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "stir up, arouse"}, {"latin": "intermittō, intermittere, intermīsī, intermissum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "stop, pause; interrupt; lose (time)"}, {"latin": "occīdō, occīdere, occīdī, occīsum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "kill, cut down"}, {"latin": "opprimō, opprimere, oppressī, oppressum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "crush, overpower"}, {"latin": "trādūcō, trādūcere, trādūxī, trāductum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "lead across"}, {"latin": "accēdō, accēdere, accessī, accessum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "approach, go to"}, {"latin": "cognōscō, cognōscere, cognōvī, cognitum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "learn, find out"}, {"latin": "crēdō, crēdere, crēdidī, crēditum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "believe, trust"}, {"latin": "exīstimō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "think, suppose, consider"}, {"latin": "intellegō, intellegere, intellēxī, intellectum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "understand"}, {"latin": "iūdicō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "judge, consider"}, {"latin": "legō, legere, lēgī, lectum", "genitive": "—", "gender": "—", "pos": "verb 3", "en": "choose; gather; read"}, {"latin": "negō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "deny, say...not"}, {"latin": "nesciō, nescīre, nescīvī, nescītum", "genitive": "—", "gender": "—", "pos": "verb 4", "en": "not know"}, {"latin": "obtineō, obtinēre, obtinuī, obtentum", "genitive": "—", "gender": "—", "pos": "verb 2", "en": "hold (against opposition)"}, {"latin": "pertineō, pertinēre, pertinuī, —", "genitive": "—", "gender": "—", "pos": "verb 2", "en": "pertain; extend"}, {"latin": "putō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "think"}, {"latin": "sciō, scīre, scīvī, scītum", "genitive": "—", "gender": "—", "pos": "verb 4", "en": "know"}, {"latin": "sentiō, sentīre, sēnsī, sēnsum", "genitive": "—", "gender": "—", "pos": "verb 4", "en": "feel, realize"}, {"latin": "spērō, -āre, -āvī, -ātum", "genitive": "—", "gender": "—", "pos": "verb 1", "en": "hope"}, {"latin": "ergō", "genitive": "—", "gender": "—", "pos": "adverb", "en": "therefore"}, {"latin": "praetereā", "genitive": "—", "gender": "—", "pos": "adverb", "en": "besides, besides that"}, {"latin": "procul", "genitive": "—", "gender": "—", "pos": "adverb", "en": "at some distance"}, {"latin": "subitō", "genitive": "—", "gender": "—", "pos": "adverb", "en": "suddenly"}, {"latin": "umquam", "genitive": "—", "gender": "—", "pos": "adverb", "en": "ever"}, {"latin": "nē", "genitive": "—", "gender": "—", "pos": "adverb", "en": "not"}, {"latin": "vērō", "genitive": "—", "gender": "—", "pos": "adverb", "en": "in truth, indeed; but"}, {"latin": "cum", "genitive": "—", "gender": "—", "pos": "conjunction", "en": "when, since, although"}, {"latin": "num", "genitive": "—", "gender": "—", "pos": "conjunction", "en": "if, whether"}, {"latin": "an", "genitive": "—", "gender": "—", "pos": "conjunction", "en": "or"}, {"latin": "annōn", "genitive": "—", "gender": "—", "pos": "conjunction", "en": "or not"}, {"latin": "autem", "genitive": "—", "gender": "—", "pos": "conjunction", "en": "but, however; and, moreover (postpositive)"}, {"latin": "enim", "genitive": "—", "gender": "—", "pos": "conjunction", "en": "for (postpositive)"}, {"latin": "vel", "genitive": "—", "gender": "—", "pos": "conjunction", "en": "or"}, {"latin": "utrum...an...", "genitive": "—", "gender": "—", "pos": "conjunction", "en": "whether...or..."}, {"latin": "utrum...necne", "genitive": "—", "gender": "—", "pos": "conjunction", "en": "whether...or not"}, {"latin": "apud", "genitive": "—", "gender": "prep. + acc.", "pos": "preposition", "en": "among, at the house of, in the presence of"}, {"latin": "circum", "genitive": "—", "gender": "prep. + acc.", "pos": "preposition", "en": "around"}, {"latin": "praeter", "genitive": "—", "gender": "prep. + acc.", "pos": "preposition", "en": "beyond, besides, except"}, {"latin": "prō", "genitive": "—", "gender": "prep. + abl.", "pos": "preposition", "en": "in front of, on behalf of, in exchange for, instead of"}, {"latin": "suī, sibi, sē", "genitive": "—", "gender": "refl.", "pos": "pronoun", "en": "himself, herself, itself, themselves"}];
+
+const POS = {
+  noun:        {label:"NOUN",        bg:"#1a3a5c", accent:"#4a9eff"},
+  adjective:   {label:"ADJ",         bg:"#1a4a2e", accent:"#4ecb71"},
+  "verb 1":    {label:"VERB I",      bg:"#4a2010", accent:"#ff7040"},
+  "verb 2":    {label:"VERB II",     bg:"#4a2010", accent:"#ff9060"},
+  "verb 3":    {label:"VERB III",    bg:"#4a2010", accent:"#ffaa70"},
+  "verb 4":    {label:"VERB IV",     bg:"#4a2010", accent:"#ffcc90"},
+  numeral:     {label:"NUM",         bg:"#3a1a5c", accent:"#bb88ff"},
+  adverb:      {label:"ADV",         bg:"#3a3010", accent:"#e8c040"},
+  conjunction: {label:"CONJ",        bg:"#1a3a4a", accent:"#40d0d0"},
+  preposition: {label:"PREP",        bg:"#3a1a3a", accent:"#e060c0"},
+  pronoun:     {label:"PRON",        bg:"#1a4040", accent:"#40e0b0"},
+};
+const FILTERS = ["all","noun","adjective","pronoun","verb 1","verb 2","verb 3","verb 4","numeral","adverb","conjunction","preposition"];
+
+let mode = "latin";
+let filterPos = "all";
+let deck = shuffle(VOCAB.slice());
+let index = 0;
+let flipped = false;
+const known = new Set();
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function filtered(){ return filterPos==="all"?deck:deck.filter(c=>c.pos===filterPos); }
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function sz(t){ return t.length>40?15:t.length>25?20:28; }
+
+function buildFilters(){
+  const row=document.getElementById("filterRow");
+  row.innerHTML="";
+  FILTERS.forEach(p=>{
+    const b=document.createElement("button");
+    b.className="filter"+(filterPos===p?" active":"");
+    b.textContent = p==="all"?"ALL":(POS[p]?POS[p].label:p);
+    if(filterPos===p && p!=="all"){ b.style.color=POS[p].accent; b.style.borderColor=POS[p].accent; b.style.background=POS[p].bg; }
+    if(filterPos===p && p==="all"){ b.style.color="#e8dfc8"; b.style.borderColor="#e8dfc8"; }
+    b.onclick=()=>{ filterPos=p; index=0; flipped=false; deck=shuffle(VOCAB.slice()); render(); };
+    row.appendChild(b);
+  });
+}
+
+function render(){
+  const list=filtered();
+  document.getElementById("count").textContent = VOCAB.length+" words \u00b7 "+known.size+" known";
+  buildFilters();
+
+  const card=document.getElementById("card");
+  const front=document.getElementById("front");
+  const back=document.getElementById("back");
+
+  if(list.length===0){
+    front.innerHTML='<div class="term" style="font-size:16px;color:#666">No cards in this category.</div>';
+    back.innerHTML=""; 
+    document.getElementById("progBar").style.width="0%";
+    return;
+  }
+  if(index>=list.length) index=list.length-1;
+  const c=list[index];
+  const cfg=POS[c.pos]||POS.noun;
+
+  card.className="card"+(flipped?" flipped":"");
+
+  const term = mode==="latin"?c.latin:c.en;
+  const ans = mode==="latin"?c.en:c.latin;
+
+  front.style.background="linear-gradient(145deg,"+cfg.bg+" 0%,#0d0d1a 100%)";
+  front.style.border="1px solid "+cfg.accent+"33";
+  front.style.boxShadow="0 0 40px "+cfg.accent+"22, 0 20px 60px #00000088";
+  front.innerHTML =
+    '<div class="tag" style="color:'+cfg.accent+'">'+cfg.label+'</div>'+
+    '<div class="idx">'+(index+1)+' / '+list.length+'</div>'+
+    '<div class="term '+(mode==="latin"?"italic":"")+'" style="font-size:'+sz(term)+'px">'+esc(term)+'</div>'+
+    '<div class="hint">tap to reveal</div>';
+
+  let details="";
+  if(c.pos==="noun"){
+    details='<div class="details">';
+    if(c.genitive!=="\u2014") details+='<div class="detail"><div class="lbl">Genitive</div><div class="val italic">'+esc(c.genitive)+'</div></div>';
+    details+='<div class="detail"><div class="lbl">Gender</div><div class="val">'+esc(c.gender)+'</div></div></div>';
+  } else if((c.pos==="adjective"||c.pos==="pronoun")&&c.gender!=="\u2014"){
+    details='<div class="detail"><div class="lbl">Type</div><div class="val">'+esc(c.gender)+'</div></div>';
+  } else if(c.pos==="preposition"){
+    details='<div class="detail"><div class="lbl">Case</div><div class="val">'+esc(c.gender)+'</div></div>';
+  }
+
+  back.style.background="linear-gradient(145deg,#1a1a1a 0%,"+cfg.bg+"aa 100%)";
+  back.style.border="1px solid "+cfg.accent+"66";
+  back.style.boxShadow="0 0 60px "+cfg.accent+"33, 0 20px 60px #00000088";
+  back.innerHTML =
+    '<div class="tag" style="color:'+cfg.accent+'">'+cfg.label+'</div>'+
+    '<div class="answer '+(mode==="english"?"italic":"")+'" style="font-size:'+sz(ans)+'px;color:'+cfg.accent+'">'+esc(ans)+'</div>'+
+    details;
+
+  document.getElementById("progBar").style.width=((index+1)/list.length*100)+"%";
+  document.getElementById("progBar").style.background=cfg.accent;
+
+  const kb=document.getElementById("knownBtn");
+  const isK=known.has(c.latin);
+  kb.textContent=isK?"\u2713 Known":"Mark Known";
+  kb.style.border="1px solid "+cfg.accent;
+  kb.style.color=isK?cfg.bg:cfg.accent;
+  kb.style.background=isK?cfg.accent:"transparent";
+
+  document.getElementById("prev").disabled=index===0;
+  document.getElementById("next").disabled=index===list.length-1;
+
+  const m=document.getElementById("mastery");
+  if(known.size>0){
+    m.style.display="block";
+    document.getElementById("masteryLbl").textContent=known.size+" / "+VOCAB.length+" mastered";
+    document.getElementById("masteryBar").style.width=(known.size/VOCAB.length*100)+"%";
+  } else m.style.display="none";
+}
+
+document.getElementById("card").onclick=()=>{ flipped=!flipped; render(); };
+document.getElementById("prev").onclick=()=>{ if(index>0){index--;flipped=false;render();} };
+document.getElementById("next").onclick=()=>{ const l=filtered(); if(index<l.length-1){index++;flipped=false;render();} };
+document.getElementById("knownBtn").onclick=()=>{ const c=filtered()[index]; if(!c)return; known.has(c.latin)?known.delete(c.latin):known.add(c.latin); render(); };
+document.getElementById("shuffle").onclick=()=>{ deck=shuffle(VOCAB.slice()); index=0; flipped=false; render(); };
+document.getElementById("reset").onclick=()=>{ deck=shuffle(VOCAB.slice()); index=0; flipped=false; known.clear(); render(); };
+document.getElementById("modeRow").onclick=(e)=>{ const b=e.target.closest("[data-mode]"); if(!b)return; mode=b.dataset.mode; flipped=false; document.querySelectorAll("#modeRow .toggle").forEach(t=>t.classList.toggle("active",t===b)); render(); };
+
+document.addEventListener("keydown",(e)=>{
+  if(e.key==="ArrowLeft") document.getElementById("prev").click();
+  else if(e.key==="ArrowRight") document.getElementById("next").click();
+  else if(e.key===" "||e.key==="Enter"){ e.preventDefault(); flipped=!flipped; render(); }
+});
+
+render();
+</script>
+</body>
+</html>
